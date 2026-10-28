@@ -36,6 +36,32 @@ const parsePrice = (priceStr) => {
   return parseFloat(priceStr.toString().replace(/[^0-9.-]+/g, '')) || 0;
 };
 
+const getDaysInMonth = (year, month) => new Date(year, month, 0).getDate();
+
+const toDateKey = (year, month, day) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+const parseDateKey = (value) => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const formatDateKey = (date) => toDateKey(date.getFullYear(), date.getMonth() + 1, date.getDate());
+
+const getDateRangeKeys = (from, to) => {
+  const start = parseDateKey(from);
+  const end = parseDateKey(to);
+  const keys = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    keys.push(formatDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return keys;
+};
+
 export default function Analytics() {
   const [period, setPeriodState] = useState(() => {
     return sessionStorage.getItem('analytics_period') || 'month';
@@ -54,6 +80,8 @@ export default function Analytics() {
   const [selectedDate, setSelectedDate] = useState('2026-09-15');
   const [selectedMonth, setSelectedMonth] = useState(9); // September
   const [selectedYear, setSelectedYear] = useState(2026);
+  const [customFrom, setCustomFrom] = useState({ day: 1, month: 9, year: 2026 });
+  const [customTo, setCustomTo] = useState({ day: 30, month: 9, year: 2026 });
 
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [chartType, setChartType] = useState('line'); // 'line' or 'bar'
@@ -93,12 +121,53 @@ export default function Analytics() {
   };
 
   const exactDaysList = getExactDaysInMonthList();
+  const getDayOptions = (month, year) => Array.from(
+    { length: getDaysInMonth(year, month) },
+    (_, index) => index + 1
+  );
+  const customFromKey = toDateKey(customFrom.year, customFrom.month, customFrom.day);
+  const customToKey = toDateKey(customTo.year, customTo.month, customTo.day);
 
   // Compute dynamic chart & analytics based on Period & Selected Dropdown Values
   const getAnalyticsData = () => {
     const isFutureOrYear2027 = Number(selectedYear) >= 2027;
 
-    if (period === 'day') {
+    if (period === 'custom') {
+      const rangeKeys = customFromKey <= customToKey
+        ? getDateRangeKeys(customFromKey, customToKey)
+        : [];
+      const chart = rangeKeys.map((dateKey) => {
+        const dayJobs = jobOrders.filter((j) => j && j.dateTime && j.dateTime.startsWith(dateKey));
+        return {
+          label: parseDateKey(dateKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          date: dateKey,
+          fullDate: parseDateKey(dateKey).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          value: dayJobs.reduce((sum, j) => sum + parsePrice(j.totalPrice), 0),
+          jobs: dayJobs.length,
+        };
+      });
+      const totalRev = chart.reduce((sum, c) => sum + c.value, 0);
+      const totalJobs = chart.reduce((sum, c) => sum + c.jobs, 0);
+      const avg = totalJobs > 0 ? totalRev / totalJobs : 0;
+      const validRange = rangeKeys.length > 0;
+
+      return {
+        revenue: `₱${totalRev.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        completedJobs: `${totalJobs} Jobs in selected range`,
+        avgCost: `₱${avg.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        growth: 'Custom date range',
+        statusText: totalJobs > 0 ? 'Excellent' : 'No Data',
+        statusSubtext: totalJobs > 0 ? 'Recorded Repairs in Range' : '0 Repairs Recorded',
+        dateRange: validRange
+          ? `${parseDateKey(customFromKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${parseDateKey(customToKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+          : 'Invalid range: From date must be before To date',
+        chart,
+      };
+    } else if (period === 'day') {
       // DAY BREAKDOWN (Hourly slots for chosen date)
       const dateObj = new Date(selectedDate);
       const formattedDateStr = !isNaN(dateObj)
@@ -356,6 +425,9 @@ export default function Analytics() {
                 <option value="year" className="bg-white text-gray-900 font-semibold">
                   Year
                 </option>
+                <option value="custom" className="bg-white text-gray-900 font-semibold">
+                  Custom Range
+                </option>
               </select>
               <ChevronDown className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-white/80 pointer-events-none" />
             </div>
@@ -471,6 +543,47 @@ export default function Analytics() {
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+              </div>
+            )}
+
+            {period === 'custom' && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-bold text-gray-500 uppercase">From</span>
+                {[
+                  ['day', customFrom.day, (value) => setCustomFrom((current) => ({ ...current, day: Number(value) }))],
+                  ['month', customFrom.month, (value) => setCustomFrom((current) => ({ ...current, month: Number(value), day: Math.min(current.day, getDaysInMonth(current.year, Number(value))) }))],
+                  ['year', customFrom.year, (value) => setCustomFrom((current) => ({ ...current, year: Number(value), day: Math.min(current.day, getDaysInMonth(Number(value), current.month)) }))],
+                ].map(([type, value, onChange]) => (
+                  <select
+                    key={`from-${type}`}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="bg-white border border-gray-200 text-gray-900 font-bold rounded-xl px-2.5 py-2 focus:outline-none focus:border-blue-600"
+                    aria-label={`From ${type}`}
+                  >
+                    {(type === 'day' ? getDayOptions(customFrom.month, customFrom.year) : type === 'month' ? MONTHS_LIST.map((m) => m.value) : YEARS_LIST).map((option) => (
+                      <option key={option} value={option}>{type === 'month' ? MONTHS_LIST[option - 1].short : option}</option>
+                    ))}
+                  </select>
+                ))}
+                <span className="font-bold text-gray-500 uppercase">To</span>
+                {[
+                  ['day', customTo.day, (value) => setCustomTo((current) => ({ ...current, day: Number(value) }))],
+                  ['month', customTo.month, (value) => setCustomTo((current) => ({ ...current, month: Number(value), day: Math.min(current.day, getDaysInMonth(current.year, Number(value))) }))],
+                  ['year', customTo.year, (value) => setCustomTo((current) => ({ ...current, year: Number(value), day: Math.min(current.day, getDaysInMonth(Number(value), current.month)) }))],
+                ].map(([type, value, onChange]) => (
+                  <select
+                    key={`to-${type}`}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="bg-white border border-gray-200 text-gray-900 font-bold rounded-xl px-2.5 py-2 focus:outline-none focus:border-blue-600"
+                    aria-label={`To ${type}`}
+                  >
+                    {(type === 'day' ? getDayOptions(customTo.month, customTo.year) : type === 'month' ? MONTHS_LIST.map((m) => m.value) : YEARS_LIST).map((option) => (
+                      <option key={option} value={option}>{type === 'month' ? MONTHS_LIST[option - 1].short : option}</option>
+                    ))}
+                  </select>
+                ))}
               </div>
             )}
           </div>
