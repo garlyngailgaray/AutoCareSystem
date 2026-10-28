@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { loginUser, submitPendingRegistration } from '../api';
 import { getUserAccounts } from '../utils/userAccountsStore';
 import {
@@ -22,9 +22,22 @@ import {
   Star,
 } from 'lucide-react';
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess, mode, initialRegister = false }) {
   const navigate = useNavigate();
-  const [isRegister, setIsRegister] = useState(false);
+  const location = useLocation();
+
+  const [isRegister, setIsRegister] = useState(() => {
+    if (mode === 'register' || initialRegister || location.pathname === '/register') return true;
+    return false;
+  });
+
+  useEffect(() => {
+    if (mode === 'register' || initialRegister || location.pathname === '/register') {
+      setIsRegister(true);
+    } else if (mode === 'login' || location.pathname === '/login') {
+      setIsRegister(false);
+    }
+  }, [mode, initialRegister, location.pathname]);
 
   // Login State
   const [username, setUsername] = useState('');
@@ -146,58 +159,14 @@ export default function Login({ onLoginSuccess }) {
           });
 
           if (foundLocal) {
+            // Strict Password Verification
+            const expectedPassword = foundLocal.password || foundLocal.tempPassword || (foundLocal.role === 'client' ? 'client123' : 'password123');
+            if (password !== expectedPassword && password !== foundLocal.password && password !== foundLocal.tempPassword) {
+              throw new Error('Invalid username or password.');
+            }
             data = {
               token: 'local_fallback_token',
               user: foundLocal,
-            };
-          } else if (
-            lowerIdentifier === 'jaymarie' ||
-            lowerIdentifier === 'jaymarie_busaco'
-          ) {
-            data = {
-              token: 'local_fallback_token',
-              user: {
-                id: 10,
-                customId: 'CLT-305',
-                name: 'Jaymarie Busaco',
-                firstName: 'Jaymarie',
-                lastName: 'Busaco',
-                username: 'jaymarie',
-                email: 'jaymarie@autocare.com',
-                phone: '09123456789',
-                address: 'Loay, Bohol',
-                role: 'client',
-                civilStatus: 'Single',
-                status: 'Active',
-              },
-            };
-          } else if (
-            lowerIdentifier === 'faith' ||
-            lowerIdentifier === 'faith_cruz' ||
-            lowerIdentifier === 'faith.cruz' ||
-            lowerIdentifier === 'manager' ||
-            lowerIdentifier === 'frontdesk'
-          ) {
-            data = {
-              token: 'local_fallback_token',
-              user: {
-                id: 2,
-                customId: 'MGR-102',
-                name: 'Faith Hinghing Cruz',
-                firstName: 'Faith',
-                middleName: 'Hinghing',
-                lastName: 'Cruz',
-                username: 'faith_cruz',
-                email: 'faith@autocare.com',
-                phone: '09327182716',
-                address: 'Bilar',
-                gender: 'Female',
-                birthday: '2005-05-09',
-                age: 21,
-                role: 'manager',
-                civilStatus: 'Widowed',
-                status: 'Active',
-              },
             };
           } else {
             throw apiErr;
@@ -230,8 +199,8 @@ export default function Login({ onLoginSuccess }) {
                 { label: 'Home', path: '/' },
                 { label: 'How It Works', path: '/#how-it-works' },
                 { label: 'Services', path: '/#services' },
+                { label: 'Auto Parts', path: '/#parts-catalog' },
                 { label: 'About', path: '/#about' },
-                { label: 'Feedback', path: '/#feedback' },
                 { label: 'Contact Us', path: '/#contact' },
               ].map((item, idx) => (
                 <Link
@@ -243,16 +212,6 @@ export default function Login({ onLoginSuccess }) {
                 </Link>
               ))}
             </nav>
-
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError(null);
-              }}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-5 py-2 rounded-lg text-xs sm:text-sm transition-all shadow-md shadow-blue-600/20 uppercase tracking-wide cursor-pointer"
-            >
-              {isRegister ? 'Sign In' : 'Sign Up'}
-            </button>
           </div>
         </div>
       </header>
@@ -323,22 +282,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             </div>
 
-            {/* Testimonial Quote Box at Bottom */}
-            <div className="relative z-10 mt-8 pt-4 border-t border-slate-800/80">
-              <div className="bg-slate-950/60 backdrop-blur-md p-4 rounded-2xl border border-slate-800/80 space-y-2">
-                <p className="text-gray-200 text-xs italic leading-relaxed font-medium">
-                  "AutoCare makes car servicing fast, honest, and reliable!"
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-[11px] font-semibold">— Verified Client</span>
-                  <div className="flex text-amber-400 space-x-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-3.5 w-3.5 fill-amber-400" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* RIGHT COLUMN: Light Form Card */}
@@ -419,7 +362,7 @@ export default function Login({ onLoginSuccess }) {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="bg-blue-100 text-blue-700 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
-                      {isRegister ? 'GET STARTED' : 'WELCOME BACK'}
+                      {isRegister ? 'REGISTER' : 'WELCOME BACK'}
                     </span>
                     <Link
                       to="/"
@@ -627,25 +570,12 @@ export default function Login({ onLoginSuccess }) {
                       {loading
                         ? 'Please wait...'
                         : isRegister
-                        ? '🚀 GET STARTED NOW'
+                        ? '🚀 REGISTER NOW'
                         : 'SIGN IN NOW'}
                     </span>
                     {!loading && <ArrowRight className="h-4 w-4" />}
                   </button>
                 </form>
-
-                {/* Bottom Toggle Link */}
-                <div className="mt-4 text-center border-t border-slate-100 pt-4">
-                  <button
-                    onClick={() => {
-                      setIsRegister(!isRegister);
-                      setError(null);
-                    }}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-                  >
-                    {isRegister ? 'Already registered? Sign In Here' : "Don't have an account? Request Client Account"}
-                  </button>
-                </div>
               </div>
             )}
           </div>

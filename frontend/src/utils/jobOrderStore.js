@@ -456,8 +456,48 @@ export const processPaymentByCashier = async (
   return updated;
 };
 
+const isMechanicAccount = (user) => {
+  const role = (user?.role || '').toString().trim().toLowerCase();
+  const position = (user?.position || '').toString().trim().toLowerCase();
+  return ['staff', 'mechanic', 'technician'].includes(role) ||
+    ['staff', 'mechanic', 'technician'].includes(position);
+};
+
+const calculateMechanicAvailability = (mechanics, orders) => mechanics.map((m) => {
+  const activeJob = orders.find(
+    (o) =>
+      o.status === 'IN-PROGRESS' &&
+      o.assignedMechanic &&
+      (o.assignedMechanic.toLowerCase().includes(m.name.toLowerCase()) ||
+        m.name.toLowerCase().includes(o.assignedMechanic.toLowerCase()) ||
+        (o.assignedMechanic.toLowerCase().includes('brina') && m.name.toLowerCase().includes('brina')))
+  );
+
+  if (activeJob) {
+    return {
+      ...m,
+      isAvailable: false,
+      status: 'Occupied (Repairing)',
+      currentAssignment: {
+        jobId: `#${activeJob.id}`,
+        clientName: activeJob.clientName,
+        vehicle: `${activeJob.vehicleName} (Plate: ${activeJob.plateNumber})`,
+        service: activeJob.serviceCategory,
+        progress: activeJob.mechanicNotes || 'Repair in progress...',
+      },
+    };
+  }
+
+  return {
+    ...m,
+    isAvailable: true,
+    status: 'Available',
+    currentAssignment: null,
+  };
+});
+
 // Dynamic Mechanic Availability Calculator
-export const getMechanicsList = () => {
+export const getMechanicsList = (users = null) => {
   const orders = getJobOrders();
   let mechanics = [
     {
@@ -478,10 +518,25 @@ export const getMechanicsList = () => {
     },
   ];
 
+  const databaseMechanics = Array.isArray(users)
+    ? users.filter(isMechanicAccount).map((u, index) => ({
+      id: u.id || `mechanic-${index}`,
+      customId: u.customId || u.custom_id || u.custom_personnel_id || `STF-${u.id || index + 101}`,
+      name: u.name || [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ').trim() || u.username,
+      role: u.position || u.role || 'Staff Technician',
+      phone: u.phone || '',
+      address: u.address || '',
+    })).filter((m) => m.name)
+    : [];
+
+  if (databaseMechanics.length > 0) {
+    mechanics = databaseMechanics;
+  }
+
   try {
     const { getUserAccounts } = require('./userAccountsStore');
     const userAccs = getUserAccounts();
-    if (Array.isArray(userAccs)) {
+    if (databaseMechanics.length === 0 && Array.isArray(userAccs)) {
       const christian = userAccs.find((u) => u && ((u.username && u.username.includes('christian')) || (u.name && u.name.toLowerCase().includes('brina'))));
       if (christian) {
         mechanics[0] = {
@@ -505,38 +560,7 @@ export const getMechanicsList = () => {
     }
   } catch (e) {}
 
-  return mechanics.map((m) => {
-    const activeJob = orders.find(
-      (o) =>
-        o.status === 'IN-PROGRESS' &&
-        o.assignedMechanic &&
-        (o.assignedMechanic.toLowerCase().includes(m.name.toLowerCase()) ||
-          m.name.toLowerCase().includes(o.assignedMechanic.toLowerCase()) ||
-          (o.assignedMechanic.toLowerCase().includes('brina') && m.name.toLowerCase().includes('brina')))
-    );
-
-    if (activeJob) {
-      return {
-        ...m,
-        isAvailable: false,
-        status: 'Occupied (Repairing)',
-        currentAssignment: {
-          jobId: `#${activeJob.id}`,
-          clientName: activeJob.clientName,
-          vehicle: `${activeJob.vehicleName} (Plate: ${activeJob.plateNumber})`,
-          service: activeJob.serviceCategory,
-          progress: activeJob.mechanicNotes || 'Repair in progress...',
-        },
-      };
-    } else {
-      return {
-        ...m,
-        isAvailable: true,
-        status: 'Available',
-        currentAssignment: null,
-      };
-    }
-  });
+  return calculateMechanicAvailability(mechanics, orders);
 };
 
 // Remove all repair history / job orders for a deleted user account

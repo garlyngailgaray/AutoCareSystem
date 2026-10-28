@@ -2,6 +2,7 @@ const { Router } = require('express');
 const {
   createAccount,
   updateProfile,
+  changePassword,
   deleteUserAccount,
   getAllUsers,
   register,
@@ -62,6 +63,7 @@ router.delete('/auth/pending-requests/:id', authenticateToken, deletePendingRequ
 // Protected Profile & Users API
 router.get('/auth/me', authenticateToken, getProfile);
 router.put('/users/profile', authenticateToken, updateProfile);
+router.put('/users/change-password', authenticateToken, changePassword);
 router.get('/users', authenticateToken, getAllUsers);
 router.delete('/users/:id', authenticateToken, deleteUserAccount);
 

@@ -13,6 +13,18 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const storedUserStr = localStorage.getItem('autocare_user');
+  if (storedUserStr) {
+    try {
+      const u = JSON.parse(storedUserStr);
+      if (u) {
+        if (u.role) config.headers['X-User-Role'] = u.role;
+        if (u.id) config.headers['X-User-Id'] = u.id;
+        if (u.username) config.headers['X-User-Username'] = u.username;
+      }
+    } catch (e) {}
+  }
   return config;
 });
 
@@ -48,6 +60,14 @@ export const deletePendingRequestApi = async (id, email) => {
 
 export const updateUserProfile = async (profileData) => {
   const response = await api.put('/users/profile', profileData);
+  return response.data;
+};
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const response = await api.put('/users/change-password', {
+    currentPassword,
+    newPassword,
+  });
   return response.data;
 };
 

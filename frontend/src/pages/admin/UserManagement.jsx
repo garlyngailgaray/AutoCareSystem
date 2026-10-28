@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getUserAccounts, removeUserAccount, updateUserAccount } from '../../utils/userAccountsStore';
 import { fetchAllUsers, deleteUserAccountApi, updateUserProfile } from '../../api';
-import { Users, Search, Eye, X, User, Trash2, CheckCircle, Edit3, Save } from 'lucide-react';
+import { Users, Search, Eye, EyeOff, Key, X, User, Trash2, CheckCircle, Edit3, Save } from 'lucide-react';
 
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,6 +18,7 @@ export default function UserManagement() {
   const [editingUser, setEditingUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState(null);
+  const [showTempPass, setShowTempPass] = useState(false);
 
   // Edit User Form State
   const [editForm, setEditForm] = useState({
@@ -363,6 +364,52 @@ export default function UserManagement() {
               <div className="bg-gray-50 p-3 rounded-xl space-y-1">
                 <span className="text-[10px] font-bold text-gray-400 uppercase block">Username</span>
                 <span className="font-mono font-bold text-gray-900">@{selectedUser.username}</span>
+              </div>
+
+              {/* Temporary Password Field */}
+              <div className={`p-3 rounded-xl space-y-1.5 shadow-sm border ${
+                selectedUser.isPasswordChanged
+                  ? 'bg-slate-100/90 border-slate-200'
+                  : 'bg-amber-50/90 border-amber-200/90'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                    selectedUser.isPasswordChanged ? 'text-slate-600' : 'text-amber-900'
+                  }`}>
+                    <Key className="h-3.5 w-3.5 text-slate-500" />
+                    Temporary Password
+                  </span>
+                  <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    selectedUser.isPasswordChanged
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-200/80 text-amber-900'
+                  }`}>
+                    {selectedUser.isPasswordChanged ? 'Changed by Customer' : 'Unchanged'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="font-mono font-bold text-slate-900 text-xs tracking-widest">
+                    {selectedUser.isPasswordChanged
+                      ? '••••••••'
+                      : (showTempPass ? (selectedUser.tempPassword || (selectedUser.role === 'client' ? 'client123' : 'password123')) : '••••••••')}
+                  </span>
+
+                  {!selectedUser.isPasswordChanged ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowTempPass(!showTempPass)}
+                      className="text-amber-800 hover:text-amber-950 p-1 text-xs font-extrabold transition-colors cursor-pointer flex items-center space-x-1"
+                    >
+                      {showTempPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      <span>{showTempPass ? 'Hide' : 'Show'}</span>
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-medium text-slate-500 italic">
+                      Private & Secured
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-4 gap-2 bg-blue-50/60 p-3 rounded-xl border border-blue-100 text-[11px]">

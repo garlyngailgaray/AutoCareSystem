@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { updateUserAccount } from '../../utils/userAccountsStore';
-import { updateUserProfile } from '../../api';
+import { changePassword, updateUserProfile } from '../../api';
 import { Settings as SettingsIcon, User, Lock, Sun, Moon, Check, Camera, Edit3, X, Save, Eye, EyeOff } from 'lucide-react';
 
 export default function Settings({ user, onUserUpdate }) {
@@ -212,6 +212,10 @@ export default function Settings({ user, onUserUpdate }) {
 
   const handleSecuritySubmit = async (e) => {
     e.preventDefault();
+    if (!passwords.currentPassword.trim()) {
+      setMessage({ type: 'error', text: 'Please enter your current password.' });
+      return;
+    }
     if (passwords.newPassword !== passwords.confirmPassword) {
       setMessage({ type: 'error', text: 'New passwords do not match.' });
       return;
@@ -222,18 +226,15 @@ export default function Settings({ user, onUserUpdate }) {
     }
 
     try {
-      await updateUserProfile({
-        id: user?.id,
-        username: user?.username,
-        originalUsername: user?.username,
-        password: passwords.newPassword,
-      });
-      setMessage({ type: 'success', text: 'Password changed & updated in MySQL database successfully!' });
-      setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      await changePassword(passwords.currentPassword, passwords.newPassword);
     } catch (err) {
-      console.warn('Backend API password update warning:', err);
-      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to update password in database.' });
+      const errorMessage = err.response?.data?.error || 'Unable to change password. Please try again.';
+      setMessage({ type: 'error', text: errorMessage });
+      return;
     }
+
+    setMessage({ type: 'success', text: 'Password changed successfully! You can now log in with your new password.' });
+    setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
   return (

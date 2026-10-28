@@ -13,11 +13,15 @@ const authenticateToken = (req, res, next) => {
   }
 
   if (token === 'local_fallback_token') {
+    const headerRole = (req.headers['x-user-role'] || '').toString().toLowerCase().trim();
+    const headerUsername = (req.headers['x-user-username'] || req.headers['x-user-name'] || '').toString().trim();
+    const headerId = req.headers['x-user-id'];
+
     req.user = {
-      id: 1,
-      username: 'admin',
-      role: 'admin',
-      name: 'System Admin',
+      id: headerId ? (isNaN(parseInt(headerId, 10)) ? headerId : parseInt(headerId, 10)) : (headerRole === 'client' || headerRole === 'customer' ? 8 : 1),
+      username: headerUsername || (headerRole === 'client' || headerRole === 'customer' ? 'clt_mikegerald303' : 'admin'),
+      role: headerRole || 'client',
+      name: headerUsername || 'User',
     };
     return next();
   }

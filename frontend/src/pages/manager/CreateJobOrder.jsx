@@ -15,13 +15,18 @@ export default function CreateJobOrder({ user }) {
   const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   useEffect(() => {
-    try {
-      const mechList = getMechanicsList();
-      setMechanics(Array.isArray(mechList) ? mechList : []);
-    } catch (e) {
-      console.warn('Mechanics load warning:', e);
-      setMechanics([]);
-    }
+    const loadMechanics = async () => {
+      try {
+        const dbUsers = await fetchAllUsers();
+        const mechList = getMechanicsList(Array.isArray(dbUsers) ? dbUsers : null);
+        setMechanics(Array.isArray(mechList) ? mechList : []);
+      } catch (e) {
+        console.warn('Database mechanics fetch warning, using local mechanics:', e.message);
+        setMechanics(getMechanicsList());
+      }
+    };
+
+    loadMechanics();
 
     const defaultClients = [
       { id: 1, name: 'Claire Deliman', username: 'CLT-4', customId: 'CLT-301', phone: '09090909090' },
@@ -117,12 +122,37 @@ export default function CreateJobOrder({ user }) {
   const safeClients = Array.isArray(allClientsList) ? allClientsList : [];
   const filteredClients = safeClients.filter((c) => {
     if (!c) return false;
-    const query = (clientSearchTerm || '').toLowerCase().trim();
-    if (!query) return true;
+    let rawQuery = (clientSearchTerm || '').toLowerCase().trim();
+
+    // If search term matches the currently selected client string "Name (CustomID)",
+    // strip parentheses for clean word matching
+    if (formData.clientName && formData.clientCustomId && rawQuery.includes(formData.clientCustomId.toLowerCase())) {
+      rawQuery = (formData.clientName || '').toLowerCase().trim();
+    }
+
+    if (!rawQuery) return true;
+
+    // Tokenize search query into words
+    const queryWords = rawQuery
+      .replace(/[()]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (queryWords.length === 0) return true;
+
     const cName = (c.name || '').toLowerCase();
     const cCustomId = (c.customId || '').toLowerCase();
     const cUsername = (c.username || '').toLowerCase();
-    return cName.includes(query) || cCustomId.includes(query) || cUsername.includes(query);
+    const cPhone = (c.phone || '').toLowerCase();
+
+    // Require all query words to match at least one client field
+    return queryWords.every(
+      (word) =>
+        cName.includes(word) ||
+        cCustomId.includes(word) ||
+        cUsername.includes(word) ||
+        cPhone.includes(word)
+    );
   });
 
   const safeMechanics = Array.isArray(mechanics) ? mechanics : [];

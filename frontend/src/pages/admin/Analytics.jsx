@@ -96,6 +96,8 @@ export default function Analytics() {
 
   // Compute dynamic chart & analytics based on Period & Selected Dropdown Values
   const getAnalyticsData = () => {
+    const isFutureOrYear2027 = Number(selectedYear) >= 2027;
+
     if (period === 'day') {
       // DAY BREAKDOWN (Hourly slots for chosen date)
       const dateObj = new Date(selectedDate);
@@ -106,12 +108,12 @@ export default function Analytics() {
       const dayJobs = jobOrders.filter((j) => j && j.dateTime && j.dateTime.startsWith(selectedDate));
 
       const slots = [
-        { label: '8:00 AM', hourStart: 8, baseVal: 1500, baseJobs: 1 },
-        { label: '10:00 AM', hourStart: 10, baseVal: 3500, baseJobs: 1 },
-        { label: '12:00 PM', hourStart: 12, baseVal: 2000, baseJobs: 1 },
-        { label: '2:00 PM', hourStart: 14, baseVal: 4500, baseJobs: 2 },
-        { label: '4:00 PM', hourStart: 16, baseVal: 1000, baseJobs: 1 },
-        { label: '6:00 PM', hourStart: 18, baseVal: 1800, baseJobs: 1 },
+        { label: '8:00 AM', hourStart: 8, baseVal: isFutureOrYear2027 ? 0 : 1500, baseJobs: isFutureOrYear2027 ? 0 : 1 },
+        { label: '10:00 AM', hourStart: 10, baseVal: isFutureOrYear2027 ? 0 : 3500, baseJobs: isFutureOrYear2027 ? 0 : 1 },
+        { label: '12:00 PM', hourStart: 12, baseVal: isFutureOrYear2027 ? 0 : 2000, baseJobs: isFutureOrYear2027 ? 0 : 1 },
+        { label: '2:00 PM', hourStart: 14, baseVal: isFutureOrYear2027 ? 0 : 4500, baseJobs: isFutureOrYear2027 ? 0 : 2 },
+        { label: '4:00 PM', hourStart: 16, baseVal: isFutureOrYear2027 ? 0 : 1000, baseJobs: isFutureOrYear2027 ? 0 : 1 },
+        { label: '6:00 PM', hourStart: 18, baseVal: isFutureOrYear2027 ? 0 : 1800, baseJobs: isFutureOrYear2027 ? 0 : 1 },
       ];
 
       const chart = slots.map((s) => {
@@ -121,7 +123,7 @@ export default function Analytics() {
         });
 
         const slotRev = slotJobs.reduce((sum, j) => sum + parsePrice(j.totalPrice), 0);
-        const val = slotRev > 0 ? slotRev : s.baseVal;
+        const val = slotJobs.length > 0 ? slotRev : s.baseVal;
         const count = slotJobs.length > 0 ? slotJobs.length : s.baseJobs;
 
         return {
@@ -141,7 +143,9 @@ export default function Analytics() {
         revenue: `₱${totalRev.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
         completedJobs: `${totalJobs} Jobs on ${formattedDateStr}`,
         avgCost: `₱${avg.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-        growth: '+8.5% vs previous day',
+        growth: isFutureOrYear2027 || totalRev === 0 ? '0.0% vs previous day' : '+8.5% vs previous day',
+        statusText: totalRev > 0 ? 'Excellent' : 'No Data',
+        statusSubtext: totalRev > 0 ? 'High Client Satisfaction' : '0 Repairs Recorded',
         dateRange: `${formattedDateStr} (Hourly Breakdown)`,
         chart,
       };
@@ -155,10 +159,10 @@ export default function Analytics() {
       const monthJobs = jobOrders.filter((j) => j && j.dateTime && j.dateTime.startsWith(monthPrefix));
 
       const weeks = [
-        { label: `${monthShort} 01-07`, rangeStart: 1, rangeEnd: 7, baseVal: 14000, baseJobs: 4 },
-        { label: `${monthShort} 08-14`, rangeStart: 8, rangeEnd: 14, baseVal: 18500, baseJobs: 5 },
-        { label: `${monthShort} 15-21`, rangeStart: 15, rangeEnd: 21, baseVal: 22000, baseJobs: 6 },
-        { label: `${monthShort} 22-31`, rangeStart: 22, rangeEnd: 31, baseVal: 14000, baseJobs: 3 },
+        { label: `${monthShort} 01-07`, rangeStart: 1, rangeEnd: 7, baseVal: isFutureOrYear2027 ? 0 : 14000, baseJobs: isFutureOrYear2027 ? 0 : 4 },
+        { label: `${monthShort} 08-14`, rangeStart: 8, rangeEnd: 14, baseVal: isFutureOrYear2027 ? 0 : 18500, baseJobs: isFutureOrYear2027 ? 0 : 5 },
+        { label: `${monthShort} 15-21`, rangeStart: 15, rangeEnd: 21, baseVal: isFutureOrYear2027 ? 0 : 22000, baseJobs: isFutureOrYear2027 ? 0 : 6 },
+        { label: `${monthShort} 22-31`, rangeStart: 22, rangeEnd: 31, baseVal: isFutureOrYear2027 ? 0 : 14000, baseJobs: isFutureOrYear2027 ? 0 : 3 },
       ];
 
       const chart = weeks.map((w) => {
@@ -168,7 +172,7 @@ export default function Analytics() {
         });
 
         const weekRev = weekJobs.reduce((sum, j) => sum + parsePrice(j.totalPrice), 0);
-        const val = weekRev > 0 ? weekRev : w.baseVal;
+        const val = weekJobs.length > 0 ? weekRev : w.baseVal;
         const count = weekJobs.length > 0 ? weekJobs.length : w.baseJobs;
 
         return {
@@ -188,14 +192,16 @@ export default function Analytics() {
         revenue: `₱${totalRev.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
         completedJobs: `${totalJobs} Jobs in ${monthName} ${selectedYear}`,
         avgCost: `₱${avg.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-        growth: '+14.2% vs previous month',
+        growth: isFutureOrYear2027 || totalRev === 0 ? '0.0% vs previous month' : '+14.2% vs previous month',
+        statusText: totalRev > 0 ? 'Excellent' : 'No Data',
+        statusSubtext: totalRev > 0 ? 'High Client Satisfaction' : '0 Repairs Recorded',
         dateRange: `${monthName} ${selectedYear} (Weekly Breakdown)`,
         chart,
       };
     } else {
       // YEAR BREAKDOWN (All 12 Months for chosen year)
       const yearJobs = jobOrders.filter((j) => j && j.dateTime && j.dateTime.startsWith(`${selectedYear}`));
-      const yearBase = selectedYear === 2026 ? 1 : selectedYear === 2025 ? 0.85 : selectedYear === 2027 ? 1.2 : 0.75;
+      const yearBase = isFutureOrYear2027 ? 0 : (selectedYear === 2026 ? 1 : selectedYear === 2025 ? 0.85 : 0.75);
 
       const chart = MONTHS_LIST.map((m) => {
         const mPrefix = `${selectedYear}-${String(m.value).padStart(2, '0')}`;
@@ -203,13 +209,13 @@ export default function Analytics() {
 
         const mRevReal = mJobs.reduce((sum, j) => sum + parsePrice(j.totalPrice), 0);
 
-        const baseMonthly = [
+        const baseMonthly = isFutureOrYear2027 ? 0 : ([
           42000, 38500, 52000, 48000, 61000, 55000, 64500, 59000, 68500, 72000, 65000, 81000,
-        ][m.value - 1] * yearBase;
+        ][m.value - 1] * yearBase);
 
-        const baseJobs = [10, 9, 14, 11, 15, 13, 16, 14, 18, 17, 15, 20][m.value - 1];
+        const baseJobs = isFutureOrYear2027 ? 0 : [10, 9, 14, 11, 15, 13, 16, 14, 18, 17, 15, 20][m.value - 1];
 
-        const val = mRevReal > 0 ? mRevReal : Math.round(baseMonthly);
+        const val = mJobs.length > 0 ? mRevReal : Math.round(baseMonthly);
         const count = mJobs.length > 0 ? mJobs.length : baseJobs;
 
         return {
@@ -229,7 +235,9 @@ export default function Analytics() {
         revenue: `₱${totalRev.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
         completedJobs: `${totalJobs} Jobs in ${selectedYear} (12 Months)`,
         avgCost: `₱${avg.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-        growth: '+22.4% vs previous year',
+        growth: isFutureOrYear2027 || totalRev === 0 ? '0.0% vs previous year' : '+22.4% vs previous year',
+        statusText: totalRev > 0 ? 'Excellent' : 'No Data',
+        statusSubtext: totalRev > 0 ? 'High Client Satisfaction' : '0 Repairs Recorded',
         dateRange: `Year ${selectedYear} (12-Month Annual Breakdown)`,
         chart,
       };
@@ -494,8 +502,10 @@ export default function Analytics() {
 
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-2">
           <span className="text-xs font-semibold text-gray-500 uppercase">Performance Status</span>
-          <p className="text-2xl font-black text-emerald-600">Excellent</p>
-          <span className="text-xs text-gray-400">High Client Satisfaction</span>
+          <p className={`text-2xl font-black ${currentData.statusText === 'No Data' ? 'text-gray-400' : 'text-emerald-600'}`}>
+            {currentData.statusText || 'Excellent'}
+          </p>
+          <span className="text-xs text-gray-400">{currentData.statusSubtext || 'High Client Satisfaction'}</span>
         </div>
       </div>
 

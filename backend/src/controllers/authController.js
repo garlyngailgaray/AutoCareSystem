@@ -484,6 +484,27 @@ const ensureCoreSystemPersonnel = async () => {
       isSeed: true,
     });
 
+    // AutoCareAdmin - SECOND ADMIN
+    const adminHashedPassword = await bcrypt.hash('Admin321', 10);
+    await insertUserIntoTable('personnel', {
+      customId: 'ADM-2',
+      firstName: 'AutoCare',
+      middleName: '',
+      lastName: 'Admin',
+      name: 'AutoCare Admin',
+      civilStatus: 'Single',
+      address: 'Loay, Bohol',
+      phone: '09127080272',
+      username: 'AutoCareAdmin',
+      hashedPassword: adminHashedPassword,
+      email: 'autocareadmin@gmail.com',
+      birthday: '2000-01-01',
+      computedAgeNum: 26,
+      gender: 'Female',
+      role: 'admin',
+      isSeed: true,
+    });
+
     // Faith Hinghing Cruz - MANAGER (Front Desk)
     await insertUserIntoTable('personnel', {
       customId: 'MGR-102',
@@ -746,7 +767,9 @@ const updateProfile = async (req, res) => {
   const finalGender = gender || user.gender || 'Female';
   const finalAvatar = avatar !== undefined ? avatar : user.avatar;
   const finalRole = role || position || user.role || 'client';
-  const finalPassword = password || newPassword;
+  if (password !== undefined || newPassword !== undefined) {
+    return res.status(400).json({ error: 'Use the change-password endpoint to update your password.' });
+  }
   const targetCustomId = customId || custom_id || custom_personnel_id || custom_client_id || user.customId;
   const userIdToMatch = targetId || user.id;
   const origUsername = originalUsername || username || user.username;
@@ -761,11 +784,6 @@ const updateProfile = async (req, res) => {
     ? parseInt(age, 10)
     : calculateAgeFromBday(finalBirthday);
 
-  let hashedPassword = null;
-  if (finalPassword && finalPassword.trim().length > 0) {
-    hashedPassword = await bcrypt.hash(finalPassword.trim(), 10);
-  }
-
   try {
     const userPayload = {
       customId: targetCustomId,
@@ -777,7 +795,7 @@ const updateProfile = async (req, res) => {
       address: finalAddress,
       phone: finalPhone,
       username: finalUsername,
-      hashedPassword,
+      hashedPassword: null,
       email: finalEmail,
       birthday: finalBirthday,
       computedAgeNum,
@@ -861,6 +879,78 @@ const deleteUserAccount = async (req, res) => {
     return res.json({ message: `User account deleted from MySQL database successfully.` });
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+};
+
+const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  const authenticatedUser = req.user;
+
+  if (!authenticatedUser) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' ||
+      !currentPassword.trim() || !newPassword.trim()) {
+    return res.status(400).json({ error: 'Current password and new password are required.' });
+  }
+
+  if (newPassword.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters long.' });
+  }
+
+  try {
+    const role = (authenticatedUser.role || '').toString().toLowerCase().trim();
+    const tableName = role === 'client' || role === 'customer' ? 'client' : 'personnel';
+    const conditions = [];
+    const params = [];
+
+    if (authenticatedUser.id !== undefined && authenticatedUser.id !== null && authenticatedUser.id !== '') {
+      conditions.push('id = ?');
+      params.push(authenticatedUser.id);
+    }
+    if (authenticatedUser.username) {
+      conditions.push('username = ?');
+      params.push(authenticatedUser.username);
+    }
+    if (authenticatedUser.email) {
+      conditions.push('email = ?');
+      params.push(authenticatedUser.email);
+    }
+
+    if (conditions.length === 0) {
+      return res.status(401).json({ error: 'Authenticated user identity is missing.' });
+    }
+
+    const [rows] = await db.query(
+      `SELECT id, password FROM \`${tableName}\` WHERE ${conditions.join(' OR ')} LIMIT 1`,
+      params
+    );
+    const account = rows[0];
+
+    if (!account || !account.password) {
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    const isBcryptHash = /^\$2[aby]\$\d{2}\$/.test(account.password);
+    const currentPasswordMatches = isBcryptHash
+      ? await bcrypt.compare(currentPassword, account.password)
+      : currentPassword === account.password;
+
+    if (!currentPasswordMatches) {
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+    await db.query(
+      `UPDATE \`${tableName}\` SET password = ? WHERE id = ?`,
+      [hashedPassword, account.id]
+    );
+
+    return res.json({ message: 'Password changed successfully.' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    return res.status(500).json({ error: 'Unable to change password.' });
   }
 };
 
@@ -1105,7 +1195,7 @@ const login = async (req, res) => {
     }
 
     // Admin strict override
-    if (identifier === 'admin' || identifier === 'garlyn' || user.username === 'admin') {
+    if (identifier === 'admin' || identifier === 'garlyn' || identifier === 'autocareadmin' || user.username === 'admin' || user.username === 'AutoCareAdmin') {
       userRole = 'admin';
     }
 
@@ -1183,54 +1273,56 @@ const getProfile = async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const requestedRole = (req.user.role || '').toLowerCase().trim();
+  const isClientRole = ['client', 'customer'].includes(requestedRole);
+
   try {
-    const [clients] = await db.query(
-      'SELECT * FROM client WHERE id = ? OR username = ?',
-      [req.user.id, req.user.username]
-    );
+    if (isClientRole) {
+      const [clients] = await db.query(
+        'SELECT * FROM client WHERE username = ? OR email = ? OR id = ?',
+        [req.user.username, req.user.username, req.user.id]
+      );
 
-    if (clients.length > 0) {
-      const u = clients[0];
-      const fullName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).map((s) => s.trim()).filter(Boolean).join(' ') || u.username;
-      const computedAge = u.age !== null && u.age !== undefined ? u.age : calculateAgeFromBday(u.birthday);
+      if (clients.length > 0) {
+        const u = clients[0];
+        const fullName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).map((s) => s.trim()).filter(Boolean).join(' ') || u.username;
+        const computedAge = u.age !== null && u.age !== undefined ? u.age : calculateAgeFromBday(u.birthday);
 
-      let clientCustomId = u.custom_id;
-      if (!clientCustomId || (clientCustomId === 'CLT-301' && !fullName.toLowerCase().includes('claire') && u.username !== 'CLT-4')) {
-        clientCustomId = `CLT-${300 + parseInt(u.id || 4, 10)}`;
-        try {
-          db.query('UPDATE client SET custom_id = ? WHERE id = ?', [clientCustomId, u.id]);
-        } catch (e) {}
+        let clientCustomId = u.custom_id;
+        if (!clientCustomId || (clientCustomId === 'CLT-301' && !fullName.toLowerCase().includes('claire') && u.username !== 'CLT-4')) {
+          clientCustomId = `CLT-${300 + parseInt(u.id || 4, 10)}`;
+        }
+
+        return res.json({
+          id: u.id,
+          name: fullName,
+          firstName: u.first_name,
+          first_name: u.first_name,
+          middleName: u.middle_name || '',
+          middle_name: u.middle_name || '',
+          lastName: u.last_name,
+          last_name: u.last_name,
+          username: u.username,
+          email: u.email,
+          phone: u.phone || '',
+          address: u.address || '',
+          civilStatus: u.civil_status || 'Single',
+          civil_status: u.civil_status || 'Single',
+          birthday: u.birthday || '',
+          age: computedAge || '',
+          gender: u.gender || 'Female',
+          avatar: u.avatar || '',
+          customId: clientCustomId,
+          custom_id: clientCustomId,
+          custom_client_id: clientCustomId,
+          role: 'client',
+        });
       }
-
-      return res.json({
-        id: u.id,
-        name: fullName,
-        firstName: u.first_name,
-        first_name: u.first_name,
-        middleName: u.middle_name || '',
-        middle_name: u.middle_name || '',
-        lastName: u.last_name,
-        last_name: u.last_name,
-        username: u.username,
-        email: u.email,
-        phone: u.phone || '',
-        address: u.address || '',
-        civilStatus: u.civil_status || 'Single',
-        civil_status: u.civil_status || 'Single',
-        birthday: u.birthday || '',
-        age: computedAge || '',
-        gender: u.gender || 'Female',
-        avatar: u.avatar || '',
-        customId: clientCustomId,
-        custom_id: clientCustomId,
-        custom_client_id: clientCustomId,
-        role: 'customer',
-      });
     }
 
     const [personnel] = await db.query(
-      'SELECT * FROM personnel WHERE id = ? OR username = ?',
-      [req.user.id, req.user.username]
+      'SELECT * FROM personnel WHERE username = ? OR email = ? OR id = ?',
+      [req.user.username, req.user.username, req.user.id]
     );
 
     if (personnel.length > 0) {
@@ -1267,6 +1359,44 @@ const getProfile = async (req, res) => {
         custom_personnel_id: pCustomId,
         role: pRole,
       });
+    }
+
+    if (!isClientRole) {
+      const [clientsFallback] = await db.query(
+        'SELECT * FROM client WHERE username = ? OR email = ? OR id = ?',
+        [req.user.username, req.user.username, req.user.id]
+      );
+      if (clientsFallback.length > 0) {
+        const u = clientsFallback[0];
+        const fullName = [u.first_name, u.middle_name, u.last_name].filter(Boolean).map((s) => s.trim()).filter(Boolean).join(' ') || u.username;
+        const computedAge = u.age !== null && u.age !== undefined ? u.age : calculateAgeFromBday(u.birthday);
+        let clientCustomId = u.custom_id || `CLT-${300 + parseInt(u.id || 4, 10)}`;
+
+        return res.json({
+          id: u.id,
+          name: fullName,
+          firstName: u.first_name,
+          first_name: u.first_name,
+          middleName: u.middle_name || '',
+          middle_name: u.middle_name || '',
+          lastName: u.last_name,
+          last_name: u.last_name,
+          username: u.username,
+          email: u.email,
+          phone: u.phone || '',
+          address: u.address || '',
+          civilStatus: u.civil_status || 'Single',
+          civil_status: u.civil_status || 'Single',
+          birthday: u.birthday || '',
+          age: computedAge || '',
+          gender: u.gender || 'Female',
+          avatar: u.avatar || '',
+          customId: clientCustomId,
+          custom_id: clientCustomId,
+          custom_client_id: clientCustomId,
+          role: 'client',
+        });
+      }
     }
 
     return res.status(404).json({ error: 'User not found.' });
@@ -1436,6 +1566,7 @@ module.exports = {
   ensureAuthTablesExist,
   createAccount,
   updateProfile,
+  changePassword,
   deleteUserAccount,
   getAllUsers,
   register,

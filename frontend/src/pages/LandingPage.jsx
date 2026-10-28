@@ -270,49 +270,6 @@ export default function LandingPage({ user }) {
     };
   }, []);
 
-  const [feedbackList, setFeedbackList] = useState([
-    {
-      id: 1,
-      name: 'Michael R.',
-      vehicle: '2022 Ford Mustang GT',
-      rating: 5,
-      comment: 'Top-tier service! They diagnosed an elusive transmission noise in 20 minutes. Highly recommended.',
-      date: '2 days ago',
-    },
-    {
-      id: 2,
-      name: 'Sarah K.',
-      vehicle: '2021 Honda Civic',
-      rating: 5,
-      comment: 'Super transparent pricing and polite technicians. Booking online took less than a minute!',
-      date: '1 week ago',
-    },
-    {
-      id: 3,
-      name: 'David L.',
-      vehicle: '2023 BMW M3',
-      rating: 5,
-      comment: 'Professional team who genuinely care about performance cars. My go-to shop from now on.',
-      date: '2 weeks ago',
-    },
-  ]);
-
-  const [newFeedback, setNewFeedback] = useState({ name: '', vehicle: '', rating: 5, comment: '' });
-
-  const handleFeedbackSubmit = (e) => {
-    e.preventDefault();
-    if (!newFeedback.name || !newFeedback.comment) return;
-    setFeedbackList([
-      {
-        id: Date.now(),
-        ...newFeedback,
-        date: 'Just now',
-      },
-      ...feedbackList,
-    ]);
-    setNewFeedback({ name: '', vehicle: '', rating: 5, comment: '' });
-  };
-
   const scrollToSection = (id) => {
     setActiveTab(id);
     const element = document.getElementById(id);
@@ -371,7 +328,6 @@ export default function LandingPage({ user }) {
                 { id: 'services', label: 'Services' },
                 { id: 'parts-catalog', label: 'Auto Parts' },
                 { id: 'about', label: 'About' },
-                { id: 'feedback', label: 'Feedback' },
                 { id: 'contact', label: 'Contact Us' },
               ].map((tab) => (
                 <button
@@ -398,12 +354,20 @@ export default function LandingPage({ user }) {
                   Dashboard
                 </Link>
               ) : (
-                <Link
-                  to="/login"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-5 py-2 rounded-lg text-xs sm:text-sm transition-all shadow-md shadow-amber-500/20 uppercase tracking-wide"
-                >
-                  Sign In
-                </Link>
+                <div className="flex items-center space-x-2">
+                  <Link
+                    to="/login"
+                    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-5 py-2 rounded-lg text-xs sm:text-sm transition-all shadow-md shadow-amber-500/20 uppercase tracking-wide"
+                  >
+                    SIGN IN
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-5 py-2 rounded-lg text-xs sm:text-sm transition-all shadow-md shadow-blue-600/20 uppercase tracking-wide"
+                  >
+                    SIGN UP
+                  </Link>
+                </div>
               )}
 
               {/* Dark/Light Theme Toggle */}
@@ -764,93 +728,6 @@ export default function LandingPage({ user }) {
               Whether you drive a compact car, a luxury sedan, or ride a heavy-duty motorcycle, we have the state-of-the-art diagnostic tools and expertise to get you back on the road safely and efficiently.
             </p>
           </div>
-        </div>
-      </section>
-
-      {/* Feedback Section */}
-      <section id="feedback" className="py-20 px-6 max-w-7xl mx-auto border-t border-slate-800/80">
-        <div className="text-center space-y-3 mb-16">
-          <span className="text-amber-400 text-xs font-extrabold uppercase tracking-widest bg-amber-500/10 px-3.5 py-1 rounded-full border border-amber-500/20">
-            Customer Reviews
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight">What Customers Say About Us</h2>
-          <div className="w-16 h-1 bg-amber-500 mx-auto rounded-full my-2" />
-          <p className="text-gray-400 max-w-xl mx-auto text-sm">
-            Read authentic reviews from vehicle owners who trust AutoCare.
-          </p>
-        </div>
-
-        {/* Feedback Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {feedbackList.map((item) => (
-            <div key={item.id} className="bg-slate-900/90 border border-slate-800 p-6 rounded-2xl space-y-4 hover:border-amber-500/40 transition-colors shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-white text-sm">{item.name}</h4>
-                  <p className="text-xs text-amber-400 font-semibold">{item.vehicle}</p>
-                </div>
-                <div className="flex text-amber-400">
-                  {[...Array(item.rating)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-amber-400" />
-                  ))}
-                </div>
-              </div>
-              <p className="text-gray-300 text-xs italic leading-relaxed">"{item.comment}"</p>
-              <p className="text-[10px] text-gray-500 text-right">{item.date}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Submit Feedback Form */}
-        <div className="bg-slate-900/90 border border-slate-800 p-8 rounded-3xl max-w-2xl mx-auto shadow-xl">
-          <h3 className="text-xl font-bold text-white mb-2 text-center">Leave Your Feedback</h3>
-          <p className="text-xs text-gray-400 text-center mb-6">Had a recent service with AutoCare? Share your experience below!</p>
-
-          <form onSubmit={handleFeedbackSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Your Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Alex Johnson"
-                  value={newFeedback.name}
-                  onChange={(e) => setNewFeedback({ ...newFeedback, name: e.target.value })}
-                  className="w-full bg-slate-950/80 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Vehicle Model</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 2022 Toyota RAV4"
-                  value={newFeedback.vehicle}
-                  onChange={(e) => setNewFeedback({ ...newFeedback, vehicle: e.target.value })}
-                  className="w-full bg-slate-950/80 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1">Your Experience / Review</label>
-              <textarea
-                required
-                rows={3}
-                placeholder="Write your feedback..."
-                value={newFeedback.comment}
-                onChange={(e) => setNewFeedback({ ...newFeedback, comment: e.target.value })}
-                className="w-full bg-slate-950/80 border border-slate-700 text-white rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-2.5 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 shadow-md shadow-amber-500/20"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>Submit Review</span>
-            </button>
-          </form>
         </div>
       </section>
 

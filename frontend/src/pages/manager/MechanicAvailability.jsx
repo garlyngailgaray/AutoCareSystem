@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { getMechanicsList } from '../../utils/jobOrderStore';
+import { fetchAllUsers } from '../../api';
 import { Users, UserCheck, Phone, CheckCircle, Clock } from 'lucide-react';
 
 export default function MechanicAvailability() {
   const [mechanics, setMechanics] = useState([]);
 
-  const loadMechanics = () => {
-    const list = getMechanicsList();
-    setMechanics((prev) => (JSON.stringify(prev) === JSON.stringify(list) ? prev : list));
+  const loadMechanics = async () => {
+    try {
+      const dbUsers = await fetchAllUsers();
+      const list = getMechanicsList(Array.isArray(dbUsers) ? dbUsers : null);
+      setMechanics((prev) => (JSON.stringify(prev) === JSON.stringify(list) ? prev : list));
+    } catch (e) {
+      console.warn('Database mechanics fetch warning, using local mechanics:', e.message);
+      const list = getMechanicsList();
+      setMechanics((prev) => (JSON.stringify(prev) === JSON.stringify(list) ? prev : list));
+    }
   };
 
   useEffect(() => {

@@ -182,7 +182,11 @@ export default function App() {
         <Route path="/" element={<LandingPage user={user} />} />
         <Route
           path="/login"
-          element={!user ? <Login onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/dashboard" replace />}
+          element={!user ? <Login onLoginSuccess={handleLoginSuccess} mode="login" /> : <Navigate to="/dashboard" replace />}
+        />
+        <Route
+          path="/register"
+          element={!user ? <Login onLoginSuccess={handleLoginSuccess} mode="register" initialRegister={true} /> : <Navigate to="/dashboard" replace />}
         />
 
         {/* Dashboard Routes with Side Navigation */}
